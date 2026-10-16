@@ -5,42 +5,130 @@ External model replies remain pending until the operator explicitly accepts them
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shlex
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 
 DEFAULT_RELAY_URL = "https://connect-char-relay.onrender.com"
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_NOTE_CHARS = 4_000
+MAX_STORED_SESSIONS = 100
+SESSION_STATE_KEY = "connectchar.sessions"
 SUPPORTED_PROVIDERS = frozenset({"chatgpt", "gemini", "deepseek", "claude"})
 
 
-def _configuration() -> tuple[str, str]:
+def _configuration() -> str:
     base = os.environ.get("CONNECT_CHAR_RELAY_URL", DEFAULT_RELAY_URL).strip().rstrip("/")
-    token = os.environ.get("CONNECT_CHAR_ADMIN_TOKEN", "").strip()
     parsed = urllib.parse.urlparse(base)
     if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}):
         raise ValueError("CONNECT_CHAR_RELAY_URL must be HTTPS (HTTP is allowed only on localhost).")
-    if len(token) < 32:
-        raise ValueError("CONNECT_CHAR_ADMIN_TOKEN is missing. Add the same secret used by the Render relay to your local Hermes environment.")
-    return base, token
+    return base
 
 
-def _request(method: str, path: str, payload: dict | None = None) -> dict:
-    base, token = _configuration()
+def _session_context(ctx) -> tuple[str, str]:
+    try:
+        from gateway.session_context import get_session_env
+        routing_key = get_session_env("HERMES_SESSION_KEY")
+        session_id = get_session_env("HERMES_SESSION_ID")
+    except ImportError:
+        routing_key = os.environ.get("HERMES_SESSION_KEY", "")
+        session_id = os.environ.get("HERMES_SESSION_ID", "")
+    cli_ref = getattr(getattr(ctx, "_manager", None), "_cli_ref", None)
+    if not session_id:
+        session_id = getattr(ctx, "session_id", None) or getattr(cli_ref, "session_id", None)
+        if not session_id:
+            session_id = getattr(getattr(cli_ref, "agent", None), "session_id", None)
+    identity = routing_key or session_id
+    if not identity:
+        raise RuntimeError("Hermes did not provide a session identity; start a fresh chat and retry.")
+    return hashlib.sha256(str(identity).encode("utf-8")).hexdigest(), str(session_id or "")
+
+
+def _load_sessions(ctx) -> dict:
+    try:
+        records = ctx.state.get(SESSION_STATE_KEY, default={})
+    except Exception as error:
+        raise RuntimeError("Hermes plugin state is unavailable; pairing cannot be stored safely.") from error
+    return records if isinstance(records, dict) else {}
+
+
+def _store_session(ctx, storage_key: str, hermes_session_id: str, session_id: str, token: str, expires_at: str) -> None:
+    try:
+        expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00")).timestamp()
+    except (AttributeError, TypeError, ValueError):
+        raise RuntimeError("Relay returned an invalid session-capability expiry.") from None
+    now = time.time()
+    records = _load_sessions(ctx)
+    records = {
+        key: value for key, value in records.items()
+        if isinstance(value, dict) and isinstance(value.get("expiresAt"), (int, float)) and value["expiresAt"] > now
+    }
+    records[storage_key] = {
+        "hermesSessionId": hermes_session_id,
+        "sessionId": session_id,
+        "sessionToken": token,
+        "expiresAt": expiry,
+        "updatedAt": now,
+    }
+    if len(records) > MAX_STORED_SESSIONS:
+        oldest = sorted(records, key=lambda key: records[key].get("updatedAt", 0))[:-MAX_STORED_SESSIONS]
+        for key in oldest:
+            records.pop(key, None)
+    try:
+        ctx.state.set(SESSION_STATE_KEY, records)
+    except Exception as error:
+        raise RuntimeError("Hermes could not persist this pairing; no code was displayed.") from error
+
+
+def _active_session(ctx) -> tuple[str, str]:
+    storage_key, hermes_session_id = _session_context(ctx)
+    records = _load_sessions(ctx)
+    record = records.get(storage_key)
+    if not isinstance(record, dict):
+        raise RuntimeError("No active Connect Char pairing for this Hermes chat. Run /connectchar new first.")
+    previous_session_id = record.get("hermesSessionId") or ""
+    if hermes_session_id and previous_session_id and hermes_session_id != previous_session_id:
+        records.pop(storage_key, None)
+        try:
+            ctx.state.set(SESSION_STATE_KEY, records)
+        except Exception as error:
+            raise RuntimeError("Hermes could not clear the previous Connect Char pairing.") from error
+        raise RuntimeError("Connect Char pairing belongs to an earlier Hermes session. Run /connectchar new again.")
+    if hermes_session_id and not previous_session_id:
+        record["hermesSessionId"] = hermes_session_id
+        records[storage_key] = record
+        try:
+            ctx.state.set(SESSION_STATE_KEY, records)
+        except Exception as error:
+            raise RuntimeError("Hermes could not bind this pairing to the active session.") from error
+    session_id = record.get("sessionId")
+    token = record.get("sessionToken")
+    if not isinstance(session_id, str) or not isinstance(token, str) or len(token) < 40:
+        raise RuntimeError("Stored Connect Char pairing is malformed. Run /connectchar new again.")
+    if not isinstance(record.get("expiresAt"), (int, float)) or record["expiresAt"] <= time.time():
+        raise RuntimeError("Connect Char pairing expired. Run /connectchar new again.")
+    return session_id, token
+
+
+def _request(method: str, path: str, payload: dict | None = None, token: str | None = None) -> dict:
+    base = _configuration()
     body = json.dumps(payload or {}).encode("utf-8") if method != "GET" else None
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if body is not None:
+        headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
         base + path,
         data=body,
         method=method,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-            **({"Content-Type": "application/json"} if body is not None else {}),
-        },
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
@@ -72,12 +160,14 @@ def _request(method: str, path: str, payload: dict | None = None) -> dict:
     return result
 
 
-def _get_inbox() -> list[dict]:
-    payload = _request("GET", "/v1/inbox")
+def _get_inbox(ctx) -> tuple[str, str, list[dict]]:
+    session_id, token = _active_session(ctx)
+    path = f"/v1/sessions/{urllib.parse.quote(session_id, safe='')}/inbox"
+    payload = _request("GET", path, token=token)
     items = payload.get("items")
     if not isinstance(items, list):
         raise RuntimeError("Relay inbox response is malformed.")
-    return [item for item in items if isinstance(item, dict)]
+    return session_id, token, [item for item in items if isinstance(item, dict)]
 
 
 def _usage() -> str:
@@ -102,11 +192,23 @@ def _handle(ctx, raw_args: str) -> str:
     action = args[0].lower()
     try:
         if action == "new" and len(args) == 1:
+            storage_key, hermes_session_id = _session_context(ctx)
             pairing = _request("POST", "/v1/pairings", {})
             code = pairing.get("code")
             expiry = pairing.get("expiresAt")
-            if not isinstance(code, str) or not isinstance(expiry, str):
+            session_id = pairing.get("sessionId")
+            session_token = pairing.get("sessionToken")
+            session_token_expiry = pairing.get("sessionTokenExpiresAt")
+            if (
+                not isinstance(code, str)
+                or not isinstance(expiry, str)
+                or not isinstance(session_id, str)
+                or not isinstance(session_token, str)
+                or len(session_token) < 40
+                or not isinstance(session_token_expiry, str)
+            ):
                 return "Relay returned an invalid pairing response."
+            _store_session(ctx, storage_key, hermes_session_id, session_id, session_token, session_token_expiry)
             return (
                 f"Connect Char pairing code: {code}\n"
                 f"Expires: {expiry}\n"
@@ -114,7 +216,7 @@ def _handle(ctx, raw_args: str) -> str:
             )
 
         if action == "inbox" and len(args) == 1:
-            items = _get_inbox()
+            _session_id, _session_token, items = _get_inbox(ctx)
             if not items:
                 return "No browser answers are waiting for review."
             rows = ["Pending browser answers (not injected):"]
@@ -130,7 +232,7 @@ def _handle(ctx, raw_args: str) -> str:
 
         if action in {"show", "accept"} and len(args) >= 2:
             result_id = args[1]
-            items = _get_inbox()
+            session_id, session_token, items = _get_inbox(ctx)
             item = next((candidate for candidate in items if candidate.get("resultId") == result_id), None)
             if item is None:
                 return "That result is not pending review (it may be expired or already accepted)."
@@ -166,7 +268,11 @@ def _handle(ctx, raw_args: str) -> str:
             if not ctx.inject_message(message, role="user"):
                 return "Hermes could not queue the accepted answer; it remains pending in the relay."
             try:
-                _request("POST", f"/v1/results/{urllib.parse.quote(result_id, safe='')}/ack", {})
+                ack_path = (
+                    f"/v1/sessions/{urllib.parse.quote(session_id, safe='')}/results/"
+                    f"{urllib.parse.quote(result_id, safe='')}/ack"
+                )
+                _request("POST", ack_path, {}, token=session_token)
             except RuntimeError as error:
                 return f"The answer was queued in Hermes, but relay acknowledgement failed. Avoid accepting it again. {error}"
             return f"Accepted and queued the {provider} answer for this Hermes chat with your added instruction."

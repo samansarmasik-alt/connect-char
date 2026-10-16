@@ -16,25 +16,25 @@ Connect Char pairs a Chrome extension with a Hermes session through `https://con
 
 The relay is the private repo `samansarmasik-alt/connect-char-relay`; its root has a `render.yaml` Blueprint. The live service is `https://connect-char-relay.onrender.com`.
 
-Required Render environment variables:
+Gerekli Render değişkenleri:
 
-- `CONNECT_CHAR_ADMIN_TOKEN`: random secret of at least 32 characters. Keep it server-side and in the local Hermes environment only; never put it in this repository or the extension.
-- `EXTENSION_ORIGINS`: the exact extension origin shown in the popup, for example `chrome-extension://<extension-id>`. Do not use `*`. Save the setting and redeploy.
+- `EXTENSION_ORIGINS`: popup'ta görünen exact `chrome-extension://<extension-id>` origin. `*` kullanma.
+- `DATA_DIR` isteğe bağlı: Render kalıcı diskini `/var/data` konumuna bağlayıp burada belirt. Yoksa servis restart'ında bekleyen yanıtlar kaybolabilir.
 
-For persistent relay state, mount a Render persistent disk at `/var/data` and set `DATA_DIR=/var/data`. Without persistent storage, a service restart may discard active pairings and pending answers. Keep the relay at one instance because the file store is single-instance.
+`CONNECT_CHAR_ADMIN_TOKEN` yeni akışta gerekmez; sadece eski global API yolları için opsiyonel kalmıştır.
 
 ## Local setup
 
 1. In Chrome, open `chrome://extensions`, enable Developer mode, and choose Load unpacked. Select this repository's `extension/` folder.
 2. Open the Connect Char popup and copy the exact `chrome-extension://...` origin. Set that value in Render's `EXTENSION_ORIGINS` variable, then redeploy the relay.
-3. Store the same `CONNECT_CHAR_ADMIN_TOKEN` that is configured in Render in the local Windows user environment. Use Hermes' masked `secure_env_input` prompt; do not paste the secret into chat or save it in Git.
-4. Install the Hermes plugin from a fresh terminal:
+3. `/connectchar new` creates an automatically scoped session capability in Hermes plugin state; no admin secret needs to be configured in Windows or the extension.
+4. Install or update the Hermes plugin from a fresh terminal:
 
    `hermes plugins install samansarmasik-alt/connect-char --enable`
 
-   Verify with `hermes plugins list --json` and `hermes plugins show connect-char`, then open a fresh Hermes CLI so its slash-command registry is loaded.
+   If already installed: `hermes plugins update connect-char`. Verify with `hermes plugins list --json` and `hermes plugins show connect-char`, then open a fresh Hermes CLI so its slash-command registry is loaded.
 
-The extension stores its per-pair browser token in `chrome.storage.local`. It never receives the Hermes admin token. The relay retains unaccepted answers for up to three days and claimed sessions for 24 hours.
+The extension stores its per-pair browser token in `chrome.storage.local`; the Hermes session capability is stored only in Hermes plugin state and is never sent to the extension. The relay retains unaccepted answers for up to three days and claimed sessions for 24 hours.
 
 ## Supported pages and limits
 

@@ -19,7 +19,7 @@
     <section class="card provider-card" aria-live="polite">
       <div class="row"><span class="label">Active page</span><strong id="provider">Checking…</strong></div>
       <div class="origin-block">
-        <span class="label">Allow this exact origin in Render</span>
+        <span class="label">Extension origin</span>
         <code id="extension-origin"></code>
       </div>
     </section>
@@ -38,15 +38,11 @@
     </section>
 
     <section class="card">
-      <h2>2. Send a prompt</h2>
-      <p class="help">The extension submits only after you press Send. Keep this assistant tab open until it finishes.</p>
+      <h2>2. Transfer this conversation to Hermes</h2>
+      <p class="help">One click asks the active assistant to create a self-contained project handoff from this chat, then queues it in Hermes for review. Keep this conversation open while it responds; no prompt text to enter.</p>
       <form id="task-form">
-        <label for="prompt">Prompt to send to the active assistant</label>
-        <textarea id="prompt" name="prompt" rows="9" maxlength="184320" placeholder="Paste your project plan or task here…" required></textarea>
-        <div class="form-footer">
-          <span id="char-count" class="label">0 / 180 KiB</span>
-          <button id="send-button" type="submit" disabled>Send to active page</button>
-        </div>
+        <p class="handoff-scope">Includes goals, requirements, decisions, files, verified work, blockers, and next steps. Secret values are excluded.</p>
+        <button id="send-button" type="submit" disabled>Prepare handoff &amp; send</button>
       </form>
       <p id="task-state" class="state" aria-live="polite">Waiting for pairing</p>
     </section>

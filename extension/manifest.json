@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Connect Char",
-  "version": "0.1.2",
-  "description": "Send prompts to supported AI web chats and relay completed answers to Hermes for review.",
+  "version": "0.1.3",
+  "description": "Create project handoffs from supported AI chats and relay them to Hermes for review.",
   "minimum_chrome_version": "120",
   "permissions": ["activeTab", "storage"],
   "host_permissions": [

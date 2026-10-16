@@ -34,23 +34,22 @@ h2 { margin: 0 0 6px; font-size: 13px; }
 #provider { text-transform: capitalize; }
 .origin-block { display: grid; gap: 4px; margin-top: 9px; }
 code { overflow-wrap: anywhere; color: #344054; font: 10px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.inline-form { display: flex; gap: 8px; align-items: center; }
+.handoff-scope { padding: 9px 10px; margin: 0 0 10px; border-radius: 8px; background: var(--wash); color: var(--muted); font-size: 11px; }
 label { display: block; margin: 8px 0 5px; color: #344054; font-size: 11px; font-weight: 650; }
-.inline-form, .form-footer { display: flex; gap: 8px; align-items: center; }
-input, textarea {
+input {
   width: 100%; border: 1px solid #d0d5dd; border-radius: 8px; background: white; color: var(--ink);
   font: inherit; outline: none; transition: border-color .15s, box-shadow .15s;
 }
 input { min-width: 0; padding: 9px 10px; font: 650 13px ui-monospace, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
-textarea { display: block; min-height: 132px; padding: 9px 10px; resize: vertical; line-height: 1.45; }
-input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #3157d51c; }
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #3157d51c; }
 button {
   flex: 0 0 auto; border: 0; border-radius: 8px; padding: 9px 13px; color: white; background: var(--accent);
   font: 650 11px system-ui, sans-serif; cursor: pointer;
 }
 button:hover:not(:disabled) { background: var(--accent-dark); }
 button:disabled { background: #98a2b3; cursor: not-allowed; }
-#send-button { min-width: 132px; }
-.form-footer { justify-content: space-between; margin-top: 8px; }
+#send-button { width: 100%; min-height: 36px; }
 .state { margin: 9px 0 0; color: var(--muted); font-size: 11px; }
 .state.good { color: var(--good); }
 .state.bad, .notice.error { color: var(--bad); }

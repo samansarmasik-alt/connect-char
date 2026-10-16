@@ -1,13 +1,13 @@
 # Connect Char
 
-Connect Char pairs a Chrome extension with a Hermes session through `https://connect-char-relay.onrender.com`. It can submit a prompt to an open ChatGPT, Gemini, DeepSeek, or Claude web chat, then put the completed answer into Hermes' review inbox. The model answer is not injected until the user runs an explicit accept command.
+Connect Char pairs a browser extension with a Hermes session through `https://connect-char-relay.onrender.com`. One click asks the active ChatGPT, Gemini, DeepSeek, or Claude conversation to create a self-contained project handoff; the completed handoff is sent to Hermes' review inbox. It summarizes the accessible conversation rather than exporting a raw transcript. The model answer is not injected until the user runs an explicit accept command.
 
 ## Flow
 
 1. In Hermes, run `/connectchar new` to create a one-time code (10-minute expiry).
 2. Open a supported, signed-in assistant page and click the Connect Char extension.
-3. Enter the code, paste the project prompt, and press `Send to active page`.
-4. Leave that assistant tab open. The extension watches for a stable final answer and submits it to the relay.
+3. In the popup, press `Prepare handoff & send`; no project prompt needs to be typed or pasted.
+4. Leave that assistant tab open. It creates a project handoff from the accessible thread and submits the result to the relay.
 5. In Hermes, run `/connectchar inbox`, inspect with `/connectchar show <result-id>`, then explicitly accept with `/connectchar accept <result-id> [your added instruction]`.
 
 `accept` injects the answer into the current Hermes chat as a user message, clearly delimited as untrusted external content. Nothing is automatically injected or executed. Hermes may start a new turn after explicit acceptance.
@@ -16,17 +16,17 @@ Connect Char pairs a Chrome extension with a Hermes session through `https://con
 
 The relay is the private repo `samansarmasik-alt/connect-char-relay`; its root has a `render.yaml` Blueprint. The live service is `https://connect-char-relay.onrender.com`.
 
-Gerekli Render değişkenleri:
+Render variables:
 
-- `EXTENSION_ORIGINS`: popup'ta görünen exact `chrome-extension://<extension-id>` origin. `*` kullanma.
-- `DATA_DIR` isteğe bağlı: Render kalıcı diskini `/var/data` konumuna bağlayıp burada belirt. Yoksa servis restart'ında bekleyen yanıtlar kaybolabilir.
+- `EXTENSION_ORIGINS`: optional comma-separated exact extension origins. The shipped Thorium extension origin is preconfigured; never use `*`.
+- `DATA_DIR` optional: mount Render persistent disk at `/var/data` and set this path. Without it, pending answers can be lost on service restart.
 
 `CONNECT_CHAR_ADMIN_TOKEN` yeni akışta gerekmez; sadece eski global API yolları için opsiyonel kalmıştır.
 
 ## Local setup
 
-1. In Chrome, open `chrome://extensions`, enable Developer mode, and choose Load unpacked. Select this repository's `extension/` folder.
-2. Open the Connect Char popup and copy the exact `chrome-extension://...` origin. Set that value in Render's `EXTENSION_ORIGINS` variable, then redeploy the relay.
+1. In Thorium, open `chrome://extensions`, enable Developer mode, and choose Load unpacked. Select this repository's `extension/` folder.
+2. The shipped extension origin is already allowlisted by the relay. If Thorium assigns a different ID, add its exact origin to `EXTENSION_ORIGINS` and redeploy.
 3. `/connectchar new` creates an automatically scoped session capability in Hermes plugin state; no admin secret needs to be configured in Windows or the extension.
 4. Install or update the Hermes plugin from a fresh terminal:
 
@@ -43,7 +43,7 @@ The extension stores its per-pair browser token in `chrome.storage.local`; the H
 - DeepSeek: `chat.deepseek.com`
 - Claude: `claude.ai`
 
-The provider UIs can change their DOM; if a prompt box or response selector changes, the extension reports that it could not find the control instead of guessing. Use a normal visible chat tab and press Send yourself through the popup. Maximum prompt size is 180 KiB; maximum answer size is 256 KiB. Completion is inferred from a stable response and the provider's stop-generation control; keep the tab open until the extension badge indicates a queued result.
+The popup's `Prepare handoff & send` button submits a built-in instruction asking the active assistant to summarize the entire accessible thread for Hermes CLI; it does not transfer a raw transcript. The handoff is queued for review and still requires explicit `/connectchar accept`. Keep the provider tab open until the extension badge indicates a queued result. Provider UIs can change their DOM, so composer selectors have provider-specific fallbacks; maximum generated answer size is 256 KiB. Completion is inferred from a stable response and the provider's stop-generation control.
 
 ## Development and tests
 

@@ -9,8 +9,6 @@ const els = {
   pairButton: $('pair-button'),
   connectionState: $('connection-state'),
   taskForm: $('task-form'),
-  prompt: $('prompt'),
-  charCount: $('char-count'),
   sendButton: $('send-button'),
   taskState: $('task-state'),
   notice: $('notice'),
@@ -19,6 +17,8 @@ const els = {
 let activeProvider = null;
 let paired = false;
 let taskState = 'idle';
+
+const HANDOFF_PROMPT = `Create a self-contained, actionable handoff for continuing this project in Hermes CLI. Review the entire accessible conversation, not only the latest request. Include the project goal; requirements and constraints; decisions and rationale; relevant repository, branch, file paths and environment names; completed work and verification results; open issues or blockers; and ordered next steps with exact commands where known. Preserve important identifiers, paths, versions, URLs and error messages exactly. Separate confirmed facts from assumptions and label unknowns instead of guessing. Redact credentials and secret values (API keys, access tokens, passwords, cookies); retain environment-variable names only. Make the handoff detailed enough that Hermes can resume without asking me to repeat the project context. Output only the handoff, with no greeting or commentary.`;
 
 function setNotice(text, kind = '') {
   els.notice.textContent = text;
@@ -37,10 +37,7 @@ async function message(payload) {
 }
 
 function updateControls() {
-  const promptReady = els.prompt.value.trim().length > 0;
-  els.sendButton.disabled = !paired || !activeProvider || !promptReady || taskState === 'running';
-  const bytes = new TextEncoder().encode(els.prompt.value).length;
-  els.charCount.textContent = `${bytes.toLocaleString()} bytes / 180 KiB`;
+  els.sendButton.disabled = !paired || !activeProvider || taskState === 'running';
 }
 
 function showTaskStatus(status, lastResult) {
@@ -48,7 +45,7 @@ function showTaskStatus(status, lastResult) {
   if (taskState === 'paired' || taskState === 'idle') {
     setState(els.taskState, paired ? 'Ready to send.' : 'Waiting for pairing');
   } else if (taskState === 'running') {
-    setState(els.taskState, 'Prompt submitted. Waiting for the assistant to finish…');
+    setState(els.taskState, 'Creating a project handoff in the active conversation…');
   } else if (taskState === 'waiting_review') {
     setState(els.taskState, `Answer sent to Hermes review${lastResult?.resultId ? ` · ${lastResult.resultId}` : ''}.`, 'good');
   } else if (taskState === 'failed') {
@@ -100,16 +97,15 @@ els.pairForm.addEventListener('submit', async (event) => {
   }
 });
 
-els.prompt.addEventListener('input', updateControls);
 els.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   els.sendButton.disabled = true;
-  setNotice('Sending the prompt to the active assistant page…');
+  setNotice('Preparing an automatic project handoff from this conversation…');
   try {
-    const result = await message({ type: 'START_TASK', prompt: els.prompt.value });
+    const result = await message({ type: 'START_TASK', prompt: HANDOFF_PROMPT });
     taskState = 'running';
-    setState(els.taskState, `Submitted to ${result.provider}. Keep this page open while it responds.`);
-    setNotice('Task started. The final answer will be queued for review in Hermes.');
+    setState(els.taskState, `Submitted to ${result.provider}; keep this conversation open while the handoff is prepared.`);
+    setNotice('The handoff will be sent to Hermes for your review when the assistant finishes.');
   } catch (error) {
     setNotice(error.message, 'error');
   } finally {

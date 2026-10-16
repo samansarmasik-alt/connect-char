@@ -8,8 +8,8 @@ function fakeElement(id) {
   };
 }
 
-test('popup reflects provider status and drives pair then explicit prompt submission', async () => {
-  const ids = ['provider', 'extension-origin', 'pair-form', 'pairing-code', 'pair-button', 'connection-state', 'task-form', 'prompt', 'char-count', 'send-button', 'task-state', 'notice'];
+test('popup starts a fixed handoff from the active conversation without manual prompt text', async () => {
+  const ids = ['provider', 'extension-origin', 'pair-form', 'pairing-code', 'pair-button', 'connection-state', 'task-form', 'send-button', 'task-state', 'notice'];
   const elements = Object.fromEntries(ids.map((id) => [id, fakeElement(id)]));
   const sent = [];
   globalThis.document = { getElementById: (id) => elements[id] };
@@ -34,13 +34,13 @@ test('popup reflects provider status and drives pair then explicit prompt submis
   elements['pairing-code'].value = 'ABCD-EFGH';
   await elements['pair-form'].handlers.get('submit')({ preventDefault() {} });
   assert.equal(elements['connection-state'].textContent.startsWith('Paired'), true);
-  assert.equal(elements['send-button'].disabled, true);
-
-  elements.prompt.value = 'A detailed multi-stage project plan';
-  elements.prompt.handlers.get('input')();
   assert.equal(elements['send-button'].disabled, false);
+
   await elements['task-form'].handlers.get('submit')({ preventDefault() {} });
-  assert.ok(sent.some((message) => message.type === 'START_TASK' && message.prompt === elements.prompt.value));
+  const task = sent.find((message) => message.type === 'START_TASK');
+  assert.ok(task?.prompt);
+  assert.match(task.prompt, /entire accessible conversation/i);
+  assert.match(task.prompt, /redact.*API keys/i);
   assert.equal(elements['task-state'].textContent.includes('Submitted to chatgpt'), true);
 
   delete globalThis.document;

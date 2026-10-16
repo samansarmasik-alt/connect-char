@@ -14,19 +14,21 @@ Connect Char pairs a browser extension with a Hermes session through `https://co
 
 ## Render configuration
 
-The relay is the private repo `samansarmasik-alt/connect-char-relay`; its root has a `render.yaml` Blueprint. The live service is `https://connect-char-relay.onrender.com`.
+The relay source remains in the private repo `samansarmasik-alt/connect-char-relay`; its hosted API at `https://connect-char-relay.onrender.com` is public so users of the public extension/plugin can pair their own Hermes sessions.
 
 Render variables:
 
-- `EXTENSION_ORIGINS`: optional comma-separated exact extension origins. The shipped Thorium extension origin is preconfigured; never use `*`.
-- `DATA_DIR` optional: mount Render persistent disk at `/var/data` and set this path. Without it, pending answers can be lost on service restart.
+- `EXTENSION_ORIGINS`: optional comma-separated additional exact origins. Valid Chrome extension origins (`chrome-extension://` + 32 lowercase letters `a`–`p`) are accepted by default and echoed exactly; never use `*`.
+- `DATA_DIR`: use only when a paid Render persistent disk is mounted at `/var/data`. Render Free has no persistent disk; relay state can disappear on restart.
 
-`CONNECT_CHAR_ADMIN_TOKEN` yeni akışta gerekmez; sadece eski global API yolları için opsiyonel kalmıştır.
+The relay self-pings its public `/healthz` URL every 10 minutes. A scheduled GitHub Actions workflow in this public repo also pings every 10 minutes to wake it after restarts. Render Free spins down after 15 minutes without inbound traffic, so these pings reduce cold starts but do not provide an uptime guarantee. Keeping it awake can consume nearly all of Render's shared 750 free instance-hours/month; Free services can still restart and lose pending transfers. For durable production use, use a paid instance with persistent storage or an external database.
+
+`CONNECT_CHAR_ADMIN_TOKEN` is not required for the normal flow; it is optional only for legacy global API routes.
 
 ## Local setup
 
 1. In Thorium, open `chrome://extensions`, enable Developer mode, and choose Load unpacked. Select this repository's `extension/` folder.
-2. The shipped extension origin is already allowlisted by the relay. If Thorium assigns a different ID, add its exact origin to `EXTENSION_ORIGINS` and redeploy.
+2. The public relay accepts any syntactically valid Chrome extension ID and reflects only that exact origin, so unpacked installs do not need a per-user allowlist change.
 3. `/connectchar new` creates an automatically scoped session capability in Hermes plugin state; no admin secret needs to be configured in Windows or the extension.
 4. Install or update the Hermes plugin from a fresh terminal:
 

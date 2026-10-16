@@ -1,0 +1,23 @@
+name: Keep shared relay warm
+
+on:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping-relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Wake and health-check the public relay
+        run: >-
+          curl --fail --silent --show-error --max-time 75 --retry 1 --retry-delay 5
+          https://connect-char-relay.onrender.com/healthz

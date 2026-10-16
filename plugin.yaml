@@ -1,0 +1,8 @@
+name: connect-char
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+requires_hermes: ">=0.21.5"
+description: "Pair browser AI responses with Hermes and explicitly review before injection."
+homepage: "https://github.com/samansarmasik-alt/connect-char"
+provides_hooks: []

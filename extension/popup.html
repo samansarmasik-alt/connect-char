@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Connect Char</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand-mark">CC</div>
+      <div>
+        <h1>Connect Char</h1>
+        <p class="subtitle">Browser AI ↔ Hermes, with your review</p>
+      </div>
+    </header>
+
+    <section class="card provider-card" aria-live="polite">
+      <div class="row"><span class="label">Active page</span><strong id="provider">Checking…</strong></div>
+      <div class="origin-block">
+        <span class="label">Allow this exact origin in Render</span>
+        <code id="extension-origin"></code>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>1. Pair this Hermes chat</h2>
+      <p class="help">Run <code>/connectchar new</code> in Hermes. The single-use code expires after 10 minutes.</p>
+      <form id="pair-form">
+        <label for="pairing-code">Pairing code</label>
+        <div class="inline-form">
+          <input id="pairing-code" name="code" type="text" inputmode="text" autocomplete="off" maxlength="9" placeholder="ABCD-EFGH" pattern="[A-HJ-NP-Z2-9a-hj-np-z]{4}-[A-HJ-NP-Z2-9a-hj-np-z]{4}" required>
+          <button id="pair-button" type="submit">Pair</button>
+        </div>
+      </form>
+      <p id="connection-state" class="state">Not paired</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Send a prompt</h2>
+      <p class="help">The extension submits only after you press Send. Keep this assistant tab open until it finishes.</p>
+      <form id="task-form">
+        <label for="prompt">Prompt to send to the active assistant</label>
+        <textarea id="prompt" name="prompt" rows="9" maxlength="184320" placeholder="Paste your project plan or task here…" required></textarea>
+        <div class="form-footer">
+          <span id="char-count" class="label">0 / 180 KiB</span>
+          <button id="send-button" type="submit" disabled>Send to active page</button>
+        </div>
+      </form>
+      <p id="task-state" class="state" aria-live="polite">Waiting for pairing</p>
+    </section>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    <footer>External answers wait in Hermes for explicit review. The admin token never enters this extension.</footer>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

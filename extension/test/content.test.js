@@ -57,6 +57,22 @@ test('content script ignores pages that have no assistant output yet', () => {
   assert.equal(api.readLatestResponse('claude'), '');
 });
 
+test('ChatGPT input discovery supports alternate textarea and ProseMirror composers', () => {
+  const cases = [
+    ['textarea[name="prompt-textarea"]', { tagName: 'TEXTAREA', getClientRects() { return [1]; }, getAttribute() { return null; } }],
+    ['textarea#mobile-composer-prompt', { tagName: 'TEXTAREA', getClientRects() { return [1]; }, getAttribute() { return null; } }],
+    ['form[data-chatgpt-composer] .ProseMirror[contenteditable="true"]', { isContentEditable: true, getClientRects() { return [1]; }, getAttribute(name) { return name === 'contenteditable' ? 'true' : null; } }],
+  ];
+  for (const [selector, input] of cases) {
+    const fakeDocument = {
+      documentElement: {}, body: {},
+      querySelectorAll(candidate) { return candidate === selector ? [input] : []; },
+      querySelector() { return null; },
+    };
+    assert.equal(loadContent('chatgpt.com', {}, { document: fakeDocument }).api.findInput('chatgpt'), input, selector);
+  }
+});
+
 test('content script finds the current Claude ProseMirror prompt box', () => {
   const input = {
     isContentEditable: true,

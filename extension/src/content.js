@@ -9,7 +9,17 @@
   };
   const SELECTORS = {
     chatgpt: {
-      inputs: ['#prompt-textarea', 'textarea[data-testid="prompt-textarea"]', '[contenteditable="true"][data-testid="prompt-textarea"]'],
+      inputs: [
+        '#prompt-textarea',
+        'textarea[data-testid="prompt-textarea"]',
+        '[contenteditable="true"][data-testid="prompt-textarea"]',
+        'textarea[name="prompt-textarea"]',
+        'textarea#mobile-composer-prompt',
+        'form[data-chatgpt-composer] .ProseMirror[contenteditable="true"]',
+        'div.ProseMirror[contenteditable="true"]',
+        'main textarea',
+        'main [contenteditable="true"]',
+      ],
       responses: ['[data-message-author-role="assistant"]'],
       send: ['button[data-testid="send-button"]', 'button[aria-label*="Send" i]', 'button[aria-label*="Gönder" i]'],
       stop: ['button[data-testid="stop-button"]', 'button[aria-label*="Stop" i]'],

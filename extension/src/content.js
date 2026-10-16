@@ -27,7 +27,14 @@
       stop: ['button[aria-label*="Stop" i]', 'button[aria-label*="Durdur" i]'],
     },
     claude: {
-      inputs: ['div[contenteditable="true"][data-placeholder]', '[contenteditable="true"][role="textbox"]', 'textarea'],
+      inputs: [
+        '[data-testid="chat-input"][contenteditable="true"]',
+        '[data-testid="chat-input"] [contenteditable="true"]',
+        '.ProseMirror[contenteditable="true"]',
+        'div[contenteditable="true"][data-placeholder]',
+        '[contenteditable="true"][role="textbox"]',
+        'textarea',
+      ],
       responses: ['[data-message-author-role="assistant"]', '[data-testid="chat-message"] .font-claude-message', '.font-claude-message'],
       send: ['button[data-testid="send-button"]', 'button[aria-label*="Send" i]', 'button[aria-label*="Gönder" i]'],
       stop: ['button[aria-label*="Stop" i]', 'button[aria-label*="Durdur" i]'],

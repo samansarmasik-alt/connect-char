@@ -57,6 +57,24 @@ test('content script ignores pages that have no assistant output yet', () => {
   assert.equal(api.readLatestResponse('claude'), '');
 });
 
+test('content script finds the current Claude ProseMirror prompt box', () => {
+  const input = {
+    isContentEditable: true,
+    getAttribute(name) { return name === 'contenteditable' ? 'true' : null; },
+    getClientRects() { return [1]; },
+  };
+  const fakeDocument = {
+    documentElement: {}, body: {},
+    querySelectorAll(selector) {
+      if (selector === '[data-testid="chat-input"][contenteditable="true"]') return [input];
+      return [];
+    },
+    querySelector() { return null; },
+  };
+  const { api } = loadContent('claude.ai', {}, { document: fakeDocument });
+  assert.equal(api.findInput('claude'), input);
+});
+
 test('content script fills the supported prompt box and clicks Send only when asked', async () => {
   const promptText = 'A project plan with multiple phases';
   let clicked = false;
